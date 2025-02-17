@@ -1,0 +1,55 @@
+% HRVAnalysis_TimeFreq;
+% HRVAnalysis_TimeFreq_Pilot;
+% GenerateAWD;
+% GenerateAWD_Pilot;
+
+
+% GenerateTimeFreqHRVGraph;
+% GenerateTimeFreqHRVGraph_Days_Pilot;
+
+% Parameters for cosineModel
+b1 = [8.027542271, 23.88148765, 0.885165442, 5.802883805];
+b2 = [4.582804582, 23.37744783, -0.624623553, 3.20996418];
+func
+% Duration for the plot (24 hours, with finer time resolution)
+t = linspace(0, 24, 1000); % 1000 points between 0 and 24 hours
+
+% Cosine model function
+cosineModel = @(b, t) b(1) * cos(2 * pi / b(2) * t + b(3)) + b(4);
+
+% Initialize figure
+figure;
+hold on;
+
+% Plot each parameter set
+params = {b1, b2};
+colors = ['r', 'b']; % Colors for the plots
+
+for i = 1:length(params)
+    b = params{i};
+    y = cosineModel(b, t); % Compute the cosine model
+    plot(t, y, 'Color', colors(i), 'LineWidth', 2, 'DisplayName', sprintf('Model %d', i));
+    
+    % Add horizontal line for mesor
+    yline(b(4), '--', 'Color', colors(i), 'DisplayName', sprintf('Mesor %d', i));
+    
+    % Add vertical line for acrophase
+    acrophaseTime = mod(-b(3) * b(2) / (2 * pi), b(2)); % Time of acrophase, modulo FRP
+    xline(acrophaseTime, ':', 'Color', colors(i), 'DisplayName', sprintf('Acrophase %d', i));
+end
+
+% Add labels and legend
+xlabel('Time (hours)');
+ylabel('Amplitude');
+title('Cosine Models Over 24 Hours');
+legend('Location', 'best');
+
+% Customize grid and ticks
+xticks(0:4:24); % Set x-axis ticks at 4-hour intervals
+grid on;
+
+hold off;
+
+
+
+
