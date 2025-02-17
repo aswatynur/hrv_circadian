@@ -14,7 +14,7 @@ classdef adi
            %TODO: Run the viewer
            file_path = adi.uiGetChartFile();
            adi.file_viewer(file_path);
-           enddd
+        end
     end
     
     methods (Hidden,Static)

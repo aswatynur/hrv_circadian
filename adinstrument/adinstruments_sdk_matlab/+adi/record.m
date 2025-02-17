@@ -10,24 +10,34 @@ classdef (Hidden) record < handle
     
     properties
         id        %record number (1 based)
-        n_ticks   %# of samples of highest sampling rate channel
+        n_ticks   % Number of samples of highest sampling rate channel
         comments  %adi.comment
         tick_dt   %The highest sampling rate of any channel in this record.
         tick_fs   %Sampling frequency, computed for convenience from tick_dt
+
         duration
-        record_start %(Matlab time) Time in which the record started according
+        
+        
+        
+        %(Matlab time) Time in which the record started according
         %to Labchart. This is not always the time in which data collection
         %for that record started.
+        record_start 
         
-        data_start  %(Matlab time) Time at which the data that was collected 
+        %(Matlab time) Time at which the data that was collected 
         %during the record was collected. This may not correspond to the
         %record_start if a trigger delay was involved. This also apparently
         %changes when data are extracted from a file into another file
+        data_start  
+
+        record_start_datetime
+        data_start_datetime
         
         data_start_str
         
-        trigger_minus_rec_start %(seconds) How long after the record
+        %(seconds) How long after the record
         %started did the data start
+        trigger_minus_rec_start 
     end
     
     properties (Hidden)
@@ -42,6 +52,7 @@ classdef (Hidden) record < handle
            %    Inputs:
            %    -------
            %    file_h : .file_handle, .h5_file_h, .mat_file_h
+           %    sdk : adi.sdk, adi.mat_file_sdk, adi.h5_file_sdk
            
            
            obj.file_h = file_h;
@@ -60,13 +71,25 @@ classdef (Hidden) record < handle
            [obj.record_start,obj.data_start,obj.trigger_minus_rec_start_samples] = ...
                       sdk.getRecordStartTime(file_h,record_id,obj.tick_dt);
 
+
+           %JAH: 2024-07-05 - added
+           obj.record_start_datetime = datetime(obj.record_start,'ConvertFrom','datenum');
+           obj.data_start_datetime = datetime(obj.data_start,'ConvertFrom','datenum');
+        
+
            obj.trigger_minus_rec_start = -1*obj.trigger_minus_rec_start_samples*obj.tick_dt;   
                   
            obj.data_start_str = datestr(obj.data_start);
            
-
-           
+           %This is really complicated so we'll add absolute times
+           %into the instantiated objects rather than during creation
            obj.comments = sdk.getAllCommentsForRecord(file_h,obj.id,obj.tick_dt,obj.trigger_minus_rec_start);
+           
+           for i = 1:length(obj.comments)
+               %data_start is normally the same ...
+               obj.comments(i).record_start_datetime = obj.record_start;
+           end
+           
         end
     end
     
@@ -106,6 +129,7 @@ classdef (Hidden) record < handle
            
            all_comments = [objs.comments];
            if ~isempty(all_comments)
+               %adi.comment.exportToMatFile
               m = exportToMatFile(all_comments,m,conversion_options);
            end
         end

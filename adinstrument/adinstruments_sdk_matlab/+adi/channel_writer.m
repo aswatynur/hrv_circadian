@@ -8,6 +8,10 @@ classdef (Hidden) channel_writer < handle
     %   adi.setChannelName(file_h,channel,channel_name)
     %   adi.sdk.setChannelInfo
     %   adi.sdk.addChannelSamples
+    %
+    %   See Also
+    %   --------
+    %   adi.file_writer
     
     
     properties
@@ -60,7 +64,6 @@ classdef (Hidden) channel_writer < handle
             obj.name = name;
             obj.fs = fs;
             obj.units = units;
-            
             obj.updateName();
             obj.updateInfo();
         end
@@ -82,6 +85,15 @@ classdef (Hidden) channel_writer < handle
             adi.sdk.setChannelName(file_h,obj.id,obj.name);
         end
         function updateInfo(obj)
+            %
+            %
+            %   TODO: Expose limits
+            %   TODO: Allow updating units and everything else, update
+            %   properties and then make this call.
+            %       - not sure how to handle changes in fs with record
+            %       management - supporting this all is low priority
+            %
+            %Why is this handle different than the file handle?
             writer_h = obj.parent.data_writer_h;
             adi.sdk.setChannelInfo(writer_h,obj.id,1/obj.fs,obj.units,'enabled_for_record',obj.enabled);
         end

@@ -17,14 +17,14 @@ classdef (Hidden) file < handle
     end
     
     properties (Hidden)
-       file_h 
+        file_h
     end
     
     properties
         n_records
-        n_channels %# of channels in the file (across all records). This may
-        %be reduced if some channels have no data and the input options to 
-        %the constructor specify to remove empty channels.
+        n_channels %Number of channels in the file (across all records).
+        %This may be reduced if some channels have no data and the
+        %input options to the constructor specify to remove empty channels.
         records       %adi.record
         channel_specs %adi.channel These classes hold information
         %about each of the channels used.
@@ -103,24 +103,51 @@ classdef (Hidden) file < handle
             end
             
             if ~isempty(in.channels_remove)
-               mask = ismember(in.channels_remove,obj.channel_names);
-               if ~all(mask)
-                   %Some of the channels that were requested to be removed
-                   %are not in the file
-                  %TODO: Print warning message 
-               end
-               
-               mask = ismember(obj.channel_names,in.channels_remove);
-               obj.channel_specs(mask) = [];
+                mask = ismember(in.channels_remove,obj.channel_names);
+                if ~all(mask)
+                    warning('JAH:adi:file:missing_remove_channel',...
+                        'At least one of the channels specified to be removed were not in the file')
+                    %Some of the channels that were requested to be removed
+                    %are not in the file
+                    %TODO: Print warning message
+                end
+                
+                mask = ismember(obj.channel_names,in.channels_remove);
+                obj.channel_specs(mask) = [];
             end
+            
+            if ~isempty(in.channel_name_mapping)
+                old_names = in.channel_name_mapping(1:2:end);
+                new_names = in.channel_name_mapping(2:2:end);
+                [mask,loc] = ismember(old_names,obj.channel_names);
+                %TODO: We can have an option to hide this
+                if ~all(mask)
+                    warning('JAH:adi:file:missing_remove_channel',...
+                        'At least one of the channels specified to be renamed were not in the file')
+                    %Some of the channels that were requested to be removed
+                    %are not in the file
+                    %TODO: Print warning message
+                end
+                for i = 1:length(mask)
+                   if mask(i)
+                      chan_obj = obj.channel_specs(loc(i));
+                      chan_obj.name = new_names{i};
+                   end
+                end
+                
+            end
+            
             obj.n_channels = length(obj.channel_specs);
         end
     end
     methods
         function output = isChannelInRecord(obj, channel_num, record)
-            % (greg)
-            % get the channel
-            % ask the channel
+            %
+            %   output = isChannelInRecord(obj, channel_num, record)
+            %
+            %   Inputs
+            %   ------
+            %   1 based
             
             channel = obj.channel_specs(channel_num);
             output = channel.isValidForRecord(record);
@@ -136,20 +163,58 @@ classdef (Hidden) file < handle
             
             output = obj.channel_names(mask);
         end
-        function all_comments = getAllComments(obj)
-           all_records = obj.records;
-           all_comments = [all_records.comments]; 
+        function all_comments = getAllComments(obj,varargin)
+            %
+            %   record : adi.record
+            %
+            %   Optional Inputs
+            %   ---------------
+            %   output :
+            %       - 'obj' default
+            %           Returns array of comment objects
+            %       - 'table'
+            %           Returns information as a table
+            
+            in.output = 'obj';
+            in.use_datetime = false;
+            in = adi.sl.in.processVarargin(in,varargin);
+            
+            all_records = obj.records;
+            all_comments = [all_records.comments];
+            switch in.output
+                case 'obj'
+                    %do nothing
+                    %
+                    %TODO: respect in.use_datetime
+                    if in.use_datetime
+                        error('Unsupported task')
+                    end
+                case 'table'
+                    c = all_comments;
+                    t = table;
+                    t.text = string({c.str})';
+                    t.id = [c.id]';
+                    t.channel = [c.channel]';
+                    t.record = [c.record]';
+                    t.time = [c.time]';
+                    t.absolute_time = [c.absolute_time]';
+                    if in.use_datetime
+                        t.absolute_time = datetime(t.absolute_time,'ConvertFrom','datenum');
+                    end
+                    all_comments = t;
+            end
         end
         function summarizeRecords(obj)
             %x Not Yet Implemented
-            %For each record:
-            %# of comments
-            %which channels contain data
-            %duration of the record
+            % For each record:
+            % # of comments
+            % which channels contain data
+            % duration of the record
+            error('Not yet implemented')
             keyboard
         end
         function chan = getChannelByName(obj,channel_name,varargin)
-            %x Returns channel object for a given channel name 
+            %x Returns channel object for a given channel name
             %
             %   chan = ad_sdk.adi.getChannelByName(obj,channel_name,varargin)
             %
@@ -167,6 +232,38 @@ classdef (Hidden) file < handle
             end
             
             chan = temp.getChannelByName(channel_name,in);
+        end
+        function varargout = getChannelData(obj,...
+                channel_number_1b_or_name, ...
+                block_number_1b,varargin)
+            %
+            %
+            %   This is really a shortcut call for the following:
+            %   chan = obj.getChannelByName(name,varargin)
+            %   data = chan.getData(block_number,varargin)
+            %
+            %   Optional Inputs
+            %   ---------------
+            %   See adi.channel.getData
+            %
+            %   See Also
+            %   --------
+            %   adi.channel.getData
+            
+            if isnumeric(channel_number_1b_or_name)
+                spec = obj.channel_specs(channel_number_1b_or_name);
+            else
+                spec = obj.getChannelByName(channel_number_1b_or_name);
+            end
+            
+            if nargout == 2
+                [data,time] = spec.getData(block_number_1b,varargin{:});
+                varargout{1} = data;
+                varargout{2} = time;
+            else
+                data = spec.getData(block_number_1b,varargin{:});
+                varargout{1} = data;
+            end
         end
     end
     
@@ -195,17 +292,17 @@ classdef (Hidden) file < handle
             end
             
             if ~exist('save_path','var') || isempty(save_path)
-               save_path = adi.sl.dir.changeFileExtension(obj.file_path,'h5');
+                save_path = adi.sl.dir.changeFileExtension(obj.file_path,'h5');
             else
-               save_path = adi.sl.dir.changeFileExtension(save_path,'h5'); 
+                save_path = adi.sl.dir.changeFileExtension(save_path,'h5');
             end
             
             if strcmp(save_path,obj.file_path)
-               error('Conversion path and file path are the same') 
+                error('Conversion path and file path are the same')
             end
             
             if exist(save_path,'file')
-               delete(save_path); 
+                delete(save_path);
             end
             
             adi.sl.dir.createFolderIfNoExist(fileparts(save_path));
@@ -229,27 +326,29 @@ classdef (Hidden) file < handle
             %
             %   Converts the file to a mat file.
             %
+            %   See Also
+            %   --------
+            %   adi.convert
+            %   adi.mat_conversion_options
             
             if nargin < 3 || isempty(conversion_options)
                 conversion_options = adi.mat_conversion_options;
             end
             
             if ~exist('save_path','var') || isempty(save_path)
-               save_path = adi.sl.dir.changeFileExtension(obj.file_path,'mat');
+                save_path = adi.sl.dir.changeFileExtension(obj.file_path,'mat');
             else
-               save_path = adi.sl.dir.changeFileExtension(save_path,'mat'); 
+                save_path = adi.sl.dir.changeFileExtension(save_path,'mat');
             end
             
-            
-            
             if strcmp(save_path,obj.file_path)
-               error('Conversion path and file path are the same') 
+                error('Conversion path and file path are the same')
             end
             
             adi.sl.dir.createFolderIfNoExist(fileparts(save_path));
             
             if exist(save_path,'file')
-               delete(save_path); 
+                delete(save_path);
             end
             
             %http://www.mathworks.com/help/matlab/ref/matfile.html
@@ -257,11 +356,12 @@ classdef (Hidden) file < handle
             
             m = struct;
             m.file_version = 1;
-            m.file_meta    = struct('n_records',obj.n_records,'n_channels',obj.n_channels);
+            m.file_meta = struct('n_records',obj.n_records,'n_channels',obj.n_channels);
             
             m = obj.records.exportToMatFile(m,conversion_options);
             m = obj.channel_specs.exportToMatFile(m,conversion_options);
-            save(save_path,'-struct','m','-v7.3');
+            
+            save(save_path,'-struct','m',conversion_options.version);
         end
     end
     
