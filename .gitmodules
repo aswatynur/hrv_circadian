@@ -1,0 +1,9 @@
+[submodule "adinstruments_sdk_matlab"]
+	path = adinstruments_sdk_matlab
+	url = https://github.com/JimHokanson/adinstruments_sdk_matlab.git
+[submodule "lib/adinstruments_sdk_matlab"]
+	path = lib/adinstruments_sdk_matlab
+	url = https://github.com/JimHokanson/adinstruments_sdk_matlab.git
+[submodule "lib/mhrv"]
+	path = lib/mhrv
+	url = https://github.com/physiozoo/mhrv.git
